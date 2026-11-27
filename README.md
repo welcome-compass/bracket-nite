@@ -1,28 +1,58 @@
-# Bracket Night
+# Bracket Nite
 
-A phone-friendly single-elimination bracket app for 2–64 entries. Includes group voting, host-managed tournaments, personal copies, two themes, holiday starters and watched marks.
-
-## Initial source snapshot
-
-This is a basic initial commit for the public GitHub repository. It preserves the existing implementation; a Supabase migration is follow-up work. This source currently uses Sites/D1 and ChatGPT sign-in, and does not include a Supabase integration or credentials. It is not configured as a standalone deployment.
-
-The original hosting project ID has been removed. Configure hosting, the database binding and authentication before expecting a new deployment to run. Do not commit API keys, service-role credentials, database exports or participant data.
+A phone-friendly single-elimination bracket app for 2–64 entries. Includes group voting, host-managed tournaments, personal copies, two themes, holiday starters and watched marks. Live at [bracketnite.com](https://bracketnite.com).
 
 ## Architecture
 
-Vinext/React on Cloudflare Workers with a Sites-provisioned D1 database. Each tournament aggregate includes entries, opening order, matches, guest identities and votes. Conditional revision updates serialize concurrent writes. Public responses omit guest secrets and individual vote records; only the current guest's own selection is visible before closure. Host identity comes from dispatch-owned ChatGPT sign-in. Guest secrets are hashed at rest and carried by HttpOnly cookies; private recovery links use URL fragments, removed before requests.
+Next.js on Vercel, with a Supabase Postgres database. Each tournament is one row in `tournaments`: the aggregate (entries, opening order, matches, guest identities and votes) lives in a `jsonb` column, and conditional `revision` updates serialize concurrent writes. Public responses omit guest secrets and individual vote records; only the current guest's own selection is visible before closure. Guest secrets are hashed at rest and carried by HttpOnly cookies; private recovery links use URL fragments, removed before requests.
 
-## Local development
+Hosts sign in with their email. Supabase Auth emails a 6-digit code and checks it; the app then sets its own signed, 180-day `bn_host` cookie. Hosts are not database users, and the browser never talks to Supabase.
 
-Use Node 22.13 or later. Install with the Sites install-dependencies helper, generate and apply local D1 migrations as documented in the Sites starter, then run `npm run dev`. Local sign-in is simulated only on loopback; production uses Sites authentication.
+## Run locally
 
-- `npx tsc --noEmit`
-- `node --experimental-strip-types --test tests/engine.test.ts`
-- `node tests/integration.mjs` (requires local server and migrated D1; creates disposable local QA records)
-- `npm run build`
+```bash
+npm install
+cp .env.example .env.local   # fill in the Supabase keys and a SESSION_SECRET
+npm run dev
+```
 
-The JSON API is `/api`: GET without an ID lists only the signed-in creator's brackets; GET `?id=<uuid>` returns a safe bracket view. POST actions: create, copy, setup, start, watched, join, recover, recovery, vote, close. Host actions enforce ownership server-side; guest votes require their bracket session. POSTs require a matching Origin. Brackets are unlisted rather than confidential: anyone with the link can view a started tournament, and anonymous users can join active group brackets. Guest sessions identify browsers, not verified people.
+- `npm test` runs the bracket engine and session tests.
+- `npm run lint`
+- `npm run build` is the production build.
 
-## Operations
+## Environment variables
 
-The hosting manifest declares the `DB` binding. Sites applies committed migrations when deploying. No external movie APIs, scheduled tasks, uploads or paid API keys are required. Sharing is link-only, with no directory or public listing API. Polling refreshes active bracket pages every 12 seconds while visible.
+| Name | Where | Purpose |
+| --- | --- | --- |
+| `SESSION_SECRET` | Server | Signs the host login cookie. Required. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Server | Supabase project URL. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Server | Anon key. Sends and checks sign-in codes, and confirms the Data API is locked. RLS denies `anon`. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server only | Reads and writes `tournaments`. Never in the browser or in git. |
+
+## Supabase
+
+Migrations live in `supabase/migrations` and run in filename order. The Supabase GitHub integration applies new ones when they land on `main`.
+
+Auth settings (dashboard, Authentication):
+
+- Custom SMTP, the same provider as Pill Donkey. The built-in mailer only reaches your own team.
+- The Magic Link email template shows `{{ .Token }}`, so the email carries the code.
+- Site URL `https://bracketnite.com`.
+
+Check the lock after deploy:
+
+```bash
+curl https://bracketnite.com/api/health
+```
+
+`anonDataApi` should be `"denied"`.
+
+## Vercel
+
+Import this repo as a Next.js project, set the four env vars for Production (and Preview if you want it), and add `bracketnite.com` under Domains. Pushes to `main` deploy.
+
+## API
+
+The JSON API is `/api`: GET without an ID lists only the signed-in host's brackets; GET `?id=<uuid>` returns a safe bracket view. POST actions: create, copy, setup, start, watched, join, recover, recovery, vote, close. Host actions enforce ownership server-side; guest votes require their bracket session. POSTs require a matching Origin. Brackets are unlisted rather than confidential: anyone with the link can view a started tournament, and anonymous users can join active group brackets. Guest sessions identify browsers, not verified people. Polling refreshes active bracket pages every 12 seconds while visible.
+
+Sign-in lives at `POST /api/auth/code`, `POST /api/auth/verify` and `POST /api/auth/logout`.
