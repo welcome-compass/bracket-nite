@@ -50,3 +50,4 @@ yarn-error.log*
 *.pfx
 credentials*.json
 service-account*.json
+!.env.example

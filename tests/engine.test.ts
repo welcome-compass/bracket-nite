@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {generate,close,vote,publicView,validateEntries,ready,type Tournament} from '../lib/engine.ts';
+import {generate,close,vote,publicView,validateEntries,ready,type Tournament} from '../lib/engine';
 function tournament(n:number,mode:'host'|'group'='host'):Tournament{const entries=Array.from({length:n},(_,i)=>({id:String(i),name:'Entry '+i,watched:false}));return {title:'Test',theme:'everyday',mode,watch:true,status:'active',entries,order:entries.map(e=>e.id),matches:generate(entries.map(e=>e.id)),participants:{p:{name:'Pat',hash:'private'},q:{name:'Pat',hash:'different'}},votes:{}};}
 for(const n of [2,3,8,64])test(n+' entrants produces a valid complete tournament',()=>{const t=tournament(n);assert.equal(t.matches.filter(m=>m.bye).length,2**Math.ceil(Math.log2(n))-n);let steps=0;while(t.status!=='complete'){const m=t.matches.find(ready);assert.ok(m);close(t,m.id,m.a!);steps++;}assert.equal(steps,n-1);assert.ok(t.matches.at(-1)?.winner);assert.equal(t.entries.filter(e=>e.watched).length,0);});
 test('all sizes 2–64 propagate and finish without stuck matchups',()=>{for(let n=2;n<=64;n++){const t=tournament(n);while(t.status!=='complete'){const available=t.matches.filter(ready);assert.ok(available.length);const m=available.at(-1)!;close(t,m.id,m.b!);}assert.equal(t.matches.filter(m=>m.closed&&!m.bye).length,n-1);}});
