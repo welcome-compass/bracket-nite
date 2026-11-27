@@ -9,17 +9,18 @@ const movies = ['Home Alone','Elf','The Muppet Christmas Carol','The Holiday','I
 const songs = ['All I Want for Christmas Is You','Last Christmas','Jingle Bell Rock','White Christmas','Feliz Navidad','Rockin’ Around the Christmas Tree','Let It Snow','Santa Baby'];
 const modes = [
   {id:'group', name:'Vote together', sub:'Everyone votes. The host closes each matchup.', icon:Users},
-  {id:'host', name:'Host the show', sub:'One host records the winners. Everyone can follow.', icon:Flag},
-  {id:'personal', name:'Make your picks', sub:'Your own tournament, with a champion of your choosing.', icon:Trophy},
+  {id:'personal', name:'Make your picks', sub:'You choose every winner. Share the link and others can follow along.', icon:Trophy},
 ];
+// Older brackets may still use the retired 'host' mode, which plays like 'personal'.
+const modeName=(mode:string)=>modes.find(m=>m.id===(mode==='host'?'personal':mode))?.name;
 type ViewMatch = Match & {counts:Record<string,number>|null; myVote:string|null};
 type Bracket = Omit<Tournament,'matches'|'participants'|'votes'> & {
   id:string; revision:number; matches:ViewMatch[]; host:boolean;
   participant:{id:string;name:string}|null; participantCount:number;
 };
-type SavedBracket = {id:string;title:string;theme:string;status:string;mode:string;count:number;created:string};
+type SavedBracket = {id:string;title:string;status:string;mode:string;count:number;created:string};
 type Home = {user:{name:string}|null;brackets:SavedBracket[]};
-type CreateDraft = {title:string;entries:string;theme:string;mode:string;watch:boolean};
+type CreateDraft = {title:string;entries:string;mode:string;watch:boolean};
 
 async function api<T = any>(body?:unknown, id?:string):Promise<T> {
   const response = await fetch('/api'+(id?'?id='+encodeURIComponent(id):''), body ? {
@@ -48,7 +49,7 @@ export default function App() {
   const [view,setView]=useState<'home'|'create'|'bracket'>('home');
   const [busy,setBusy]=useState(false), [error,setError]=useState(''), [notice,setNotice]=useState('');
   const [title,setTitle]=useState(''), [entries,setEntries]=useState('');
-  const [theme,setTheme]=useState('everyday'), [mode,setMode]=useState('group'), [watch,setWatch]=useState(false);
+  const [mode,setMode]=useState('group'), [watch,setWatch]=useState(false);
   const [nick,setNick]=useState(''), [overview,setOverview]=useState(false), [round,setRound]=useState(0);
   const [focusId,setFocusId]=useState<string|null>(null), [edit,setEdit]=useState(false), [draft,setDraft]=useState('');
   const [recovery,setRecovery]=useState('');
@@ -69,7 +70,7 @@ export default function App() {
         const first=data.matches.find(isReady) || data.matches.find(m=>!m.closed) || data.matches.at(-1);
         setRound(data.status==='draft'?0:first?.round||0);setFocusId(first?.id||null);loadedId.current=id;
       }
-      setBracket(data);setTheme(data.theme);
+      setBracket(data);
     } catch (e) {if(activeId.current===id)setError((e as Error).message);}
   }
   function navigate(id?:string) {
@@ -80,7 +81,7 @@ export default function App() {
     window.scrollTo({top:0,behavior:'instant'});
   }
   function restoreDraft(data:CreateDraft) {
-    setTitle(data.title);setEntries(data.entries);setTheme(data.theme);setMode(data.mode);setWatch(data.watch);setView('create');
+    setTitle(data.title);setEntries(data.entries);setMode(data.mode);setWatch(data.watch);setView('create');
   }
   useEffect(()=>{
     void loadHome();
@@ -124,9 +125,9 @@ export default function App() {
   }
   function create(preset?:string) {
     activeId.current=null;loadedId.current=null;setBracket(null);setRecovery('');setError('');setMode('group');
-    if(preset==='holiday')restoreDraft({title:'The holiday movie cup',entries:movies.join('\n'),theme:'holiday',mode:'group',watch:true});
-    else if(preset==='songs')restoreDraft({title:'The Christmas song cup',entries:songs.join('\n'),theme:'holiday',mode:'group',watch:false});
-    else restoreDraft({title:'',entries:'',theme:'everyday',mode:'group',watch:false});
+    if(preset==='holiday')restoreDraft({title:'The holiday movie cup',entries:movies.join('\n'),mode:'group',watch:true});
+    else if(preset==='songs')restoreDraft({title:'The Christmas song cup',entries:songs.join('\n'),mode:'group',watch:false});
+    else restoreDraft({title:'',entries:'',mode:'group',watch:false});
     window.scrollTo({top:0,behavior:'instant'});
   }
   async function signOut() {
@@ -151,7 +152,6 @@ export default function App() {
   const completed=bracket?.matches.filter(m=>m.closed&&!m.bye).length||0;
   const total=(bracket?.entries.length||1)-1;
   const champion=bracket?.status==='complete'?names[bracket.matches.at(-1)!.winner!]:null;
-  const edition=bracket?.theme==='holiday'?'Holiday edition':'Open edition';
 
   function chooseRound(value:number) {setRound(value);setFocusId(null);setOverview(false);}
   function changeFocus(id:string) {setFocusId(id);setOverview(false);}
@@ -200,7 +200,7 @@ export default function App() {
     </article>;
   }
 
-  return <div className={'app '+(theme==='holiday'&&view!=='home'?'holiday':'')}>
+  return <div className="app">
     <header className="header"><div className="header-inner"><a className="brand" href="/" onClick={event=>{event.preventDefault();navigate();}}><Flag size={21} aria-hidden="true"/><span>Bracket Nite</span></a>
       <nav aria-label="Main navigation">{view!=='home'&&<button className="nav-button" onClick={()=>navigate()}>My brackets</button>}{home?.user?<div className="account"><span className="avatar" aria-hidden="true">{home.user.name[0]}</span><span className="account-name">{home.user.name}</span><button type="button" className="signout" disabled={busy} onClick={signOut}>Sign out</button></div>:<button type="button" className="nav-button" onClick={()=>setSigningIn(true)}>Host sign in</button>}</nav></div></header>
     {error&&<div role="alert" className="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={()=>setError('')}><X size={18}/></button></div>}
@@ -211,7 +211,7 @@ export default function App() {
       <div className="sample-scorecard" aria-label="Sample holiday movie scorecard"><div className="sample-bar"><span>Holiday movie cup</span><span>Quarterfinals</span></div><div className="sample-opponents"><div><span className="seed-chip">1</span><strong>Home<br/>Alone</strong><span className="sample-caption">The family classic</span></div><span className="sample-vs">vs.</span><div><span className="seed-chip">4</span><strong>Elf</strong><span className="sample-caption">The crowd favorite</span></div></div><div className="sample-bottom"><Trophy size={18}/><span>A champion is a few good debates away.</span></div></div></section>
 
       <section className="your-brackets"><div className="section-heading"><div><p className="eyebrow">Saved seats</p><h2>Your brackets</h2></div><span className="secondary-text">Pick up where you left off.</span></div>
-      {!home?<p className="secondary-text">{error?'Your brackets could not be loaded.':'Loading your brackets…'}</p>:home.brackets.length?<div className="saved-grid">{home.brackets.map(saved=><button className={'saved-card '+(saved.status==='complete'?'saved-complete':'')} key={saved.id} onClick={()=>navigate(saved.id)}><span className="saved-icon">{saved.status==='complete'?<Trophy/>:<Flag/>}</span><div className="saved-body"><h3>{saved.title}</h3><p>{saved.count} entries · {modes.find(m=>m.id===saved.mode)?.name}</p></div><span className={'status '+saved.status}>{saved.status==='draft'?'Setting up':saved.status==='complete'?'Champion crowned':'In play'}</span></button>)}</div>:<div className="empty-state"><Flag size={27}/><div><h3>Your table is open.</h3><p>{home.user?'Create a bracket to start your first tournament.':'Sign in to save a bracket. Joining someone else’s? Open their invitation link.'}</p></div><button className="secondary" onClick={()=>create()}>Make a bracket</button></div>}
+      {!home?<p className="secondary-text">{error?'Your brackets could not be loaded.':'Loading your brackets…'}</p>:home.brackets.length?<div className="saved-grid">{home.brackets.map(saved=><button className={'saved-card '+(saved.status==='complete'?'saved-complete':'')} key={saved.id} onClick={()=>navigate(saved.id)}><span className="saved-icon">{saved.status==='complete'?<Trophy/>:<Flag/>}</span><div className="saved-body"><h3>{saved.title}</h3><p>{saved.count} entries · {modeName(saved.mode)}</p></div><span className={'status '+saved.status}>{saved.status==='draft'?'Setting up':saved.status==='complete'?'Champion crowned':'In play'}</span></button>)}</div>:<div className="empty-state"><Flag size={27}/><div><h3>Your table is open.</h3><p>{home.user?'Create a bracket to start your first tournament.':'Sign in to save a bracket. Joining someone else’s? Open their invitation link.'}</p></div><button className="secondary" onClick={()=>create()}>Make a bracket</button></div>}
       </section>
       <section className="starter-section"><div className="section-heading"><div><p className="eyebrow">Choose your game</p><h2>Bring a list. Or borrow ours.</h2></div></div><div className="starter-grid">
       <button className="starter" onClick={()=>create('holiday')}><div className="starter-head"><Film size={23}/><span>16 entries</span></div><h3>The holiday<br/>movie cup</h3><p>The classics, the comfort watches, and a few family arguments.</p><span className="starter-action">Use the movie list</span></button>
@@ -221,11 +221,11 @@ export default function App() {
     </main>}
 
     {view==='create'&&<main className="create-page"><button className="back" onClick={()=>navigate()}>Back to my brackets</button><p className="eyebrow">Set the table</p><h1>Build your bracket.</h1><p className="lead">Start with the contenders. We’ll help with the matchups.</p>
-      <form onSubmit={event=>{event.preventDefault();void run(async()=>{const result=await api({action:'create',title,entries:entries.split('\n').map(s=>s.trim()).filter(Boolean),mode,theme,watch});navigate(result.id);});}}>
+      <form onSubmit={event=>{event.preventDefault();void run(async()=>{const result=await api({action:'create',title,entries:entries.split('\n').map(s=>s.trim()).filter(Boolean),mode,watch});navigate(result.id);});}}>
       <section className="form-panel"><div className="panel-label"><Flag size={17}/> The tournament</div><div className="form-content"><label className="field">Bracket name<input required maxLength={100} placeholder="The holiday movie cup" value={title} onChange={e=>setTitle(e.target.value)}/></label>
         <fieldset><legend>How are we playing?</legend><div className="mode-options">{modes.map(item=><label key={item.id} className={'mode-option '+(mode===item.id?'chosen':'')}><input type="radio" name="mode" value={item.id} checked={mode===item.id} onChange={()=>setMode(item.id)}/><item.icon size={21}/><strong>{item.name}</strong><span>{item.sub}</span></label>)}</div></fieldset>
         <div className="field-top"><label htmlFor="entries">The contenders</label><span>{count} / 64 entries</span></div><p id="entries-help" className="help">One entry per line. Type them in or paste your whole list.</p><textarea id="entries" aria-describedby="entries-help" required rows={9} value={entries} onChange={e=>setEntries(e.target.value)} placeholder={'Home Alone\nElf\nThe Muppet Christmas Carol'}/><button type="button" className="text-button" onClick={()=>{setEntries(movies.join('\n'));setWatch(true);}}>Use the holiday movie list</button>
-        <div className="form-bottom"><label className="field">Edition<span className="select-wrap"><select value={theme} onChange={e=>setTheme(e.target.value)}><option value="everyday">Open edition</option><option value="holiday">Holiday edition</option></select><ChevronDown size={16} aria-hidden="true"/></span></label><label className="checkbox"><input type="checkbox" checked={watch} onChange={e=>setWatch(e.target.checked)}/><span>Keep a watched checklist</span></label></div>
+        <div className="form-bottom"><label className="checkbox"><input type="checkbox" checked={watch} onChange={e=>setWatch(e.target.checked)}/><span>Keep a watched checklist</span></label></div>
       </div></section>
       {!home?.user?<div className="signin-panel"><p>Sign in to save your bracket and keep the host controls.</p><button type="button" className="primary" onClick={()=>setSigningIn(true)}>Sign in with email</button></div>:<div className="submit-row"><p className="help">You’ll review the opening matchups before starting.</p><button disabled={busy||count<2||count>64} className="primary" type="submit">{busy&&<LoaderCircle className="spin" size={17}/>} Arrange matchups</button></div>}
       </form>
@@ -234,7 +234,7 @@ export default function App() {
     {view==='bracket'&&!bracket&&<main className="loading-page"><button className="back" onClick={()=>navigate()}>Back to my brackets</button>{!error&&<p className="lead">Loading your bracket…</p>}</main>}
     {view==='bracket'&&bracket&&<main className="tournament">
       <div className="tournament-top"><button className="back" onClick={()=>navigate()}>My brackets / {bracket.status==='draft'?'Setup':'Tournament'}</button>{bracket.status!=='draft'&&<div className="toolbar"><button className="secondary" onClick={()=>clipboard(location.origin+'/?b='+bracket.id)}><Link size={16}/> Share bracket</button><button className="secondary" disabled={busy} onClick={copyBracket}><Copy size={16}/> Make my own picks</button></div>}</div>
-      <div className="tournament-heading"><div><p className="eyebrow">{bracket.mode==='personal'?'Your personal tournament':'The tournament table'}</p><h1>{bracket.title}</h1><div className="meta"><span>{bracket.entries.length} contenders</span><span>{modes.find(m=>m.id===bracket.mode)?.name}</span>{bracket.mode==='group'&&<span><Users size={15}/> {bracket.participantCount} joined</span>}<span className="identity-label">{bracket.host?'You’re the host':bracket.participant?'Playing as '+bracket.participant.name:'Spectator'}</span></div></div><span className="edition-stamp">{edition}</span></div>
+      <div className="tournament-heading"><div><p className="eyebrow">{bracket.mode==='personal'?'Your personal tournament':'The tournament table'}</p><h1>{bracket.title}</h1><div className="meta"><span>{bracket.entries.length} contenders</span><span>{modeName(bracket.mode)}</span>{bracket.mode==='group'&&<span><Users size={15}/> {bracket.participantCount} joined</span>}<span className="identity-label">{bracket.host?'You’re the host':bracket.participant?'Playing as '+bracket.participant.name:'Spectator'}</span></div></div></div>
 
       {bracket.status==='draft'?<>
         <section className="setup-panel"><div><h2>Meet your matchups.</h2><p>Shuffle the field or move entries up and down. The lineup locks when you start.</p>{bracket.source&&<p>This personal copy starts fresh with the original opening matchups.</p>}</div><div className="toolbar"><button disabled={busy} className="secondary" onClick={()=>action('setup',{order:shuffled(bracket.order)})}><Shuffle size={16}/> Shuffle</button><button className="secondary" disabled={busy} onClick={()=>{setEdit(!edit);setDraft(bracket.entries.map(e=>e.name).join('\n'));}}>{edit?'Cancel editing':'Edit entries'}</button><button disabled={busy} className="primary" onClick={()=>action('start')}>Start bracket</button></div></section>

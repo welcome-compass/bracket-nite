@@ -1,6 +1,6 @@
 # Bracket Nite
 
-A phone-friendly single-elimination bracket app for 2–64 entries. Includes group voting, host-managed tournaments, personal copies, two themes, holiday starters and watched marks. Live at [bracketnite.com](https://bracketnite.com).
+A phone-friendly single-elimination bracket app for 2–64 entries. Includes group voting, personal brackets, holiday starters and watched marks. Live at [bracketnite.com](https://bracketnite.com).
 
 ## Design system
 
