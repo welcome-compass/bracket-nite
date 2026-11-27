@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-const origin='http://127.0.0.1:5173',host='__sites_local_auth=1';
+const origin=process.env.BRACKET_TEST_ORIGIN||'http://127.0.0.1:5173',host='__sites_local_auth=1';
 async function request(body,cookie='',id){const r=await fetch(origin+'/api'+(id?'?id='+id:''),{method:body?'POST':'GET',headers:{Origin:origin,...(body?{'Content-Type':'application/json'}:{}),...(cookie?{Cookie:cookie}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]};}
 function ok(r){assert.equal(r.status,200,JSON.stringify(r.data));return r.data;}
 const create=async(mode='group',entries=['Alpha','Bravo','Charlie'])=>ok(await request({action:'create',title:'QA '+mode,mode,theme:'holiday',watch:true,entries},host)).id;

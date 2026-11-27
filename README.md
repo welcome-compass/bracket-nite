@@ -8,6 +8,10 @@ This is a basic initial commit for the public GitHub repository. It preserves th
 
 The original hosting project ID has been removed. Configure hosting, the database binding and authentication before expecting a new deployment to run. Do not commit API keys, service-role credentials, database exports or participant data.
 
+## Design system
+
+The app uses the modern scorecard design: navy mastheads, serif tournament and entry titles, cobalt controls, and gold winner states. See [DESIGN.md](DESIGN.md) for tokens, components and responsive behavior.
+
 ## Architecture
 
 Vinext/React on Cloudflare Workers with a Sites-provisioned D1 database. Each tournament aggregate includes entries, opening order, matches, guest identities and votes. Conditional revision updates serialize concurrent writes. Public responses omit guest secrets and individual vote records; only the current guest's own selection is visible before closure. Host identity comes from dispatch-owned ChatGPT sign-in. Guest secrets are hashed at rest and carried by HttpOnly cookies; private recovery links use URL fragments, removed before requests.
