@@ -31,9 +31,9 @@ Use 5px corners, 1px borders, and a small solid offset edge on the main scorecar
 - Round strip: real round numbers, selected round in cobalt, completed rounds with a check.
 - Tournament board: compact matchups connected across rounds. Constrain horizontal scrolling to the board.
 - Champion: gold medal and border with serif winner name; preserve sharing actions.
-- Setup: one clear form, edition selection, all three modes, and review before starting.
+- Setup: one clear form, the two modes, and review before starting.
 - Home: saved brackets and usable starter lists. The sample scorecard is an illustration, never a live result.
 
 ## Responsive and accessible behavior
 
-Stack page columns below tablet width. Keep matchup choices side by side on phones, wrap long names and metadata, and provide 44px touch targets. Preserve keyboard focus rings and native inputs. Host decisions stay explicit; private rejoin links can be hidden after copying. The holiday edition is a modest stamped accent within the same system.
+Stack page columns below tablet width. Keep matchup choices side by side on phones, wrap long names and metadata, and provide 44px touch targets. Preserve keyboard focus rings and native inputs. Host decisions stay explicit.
