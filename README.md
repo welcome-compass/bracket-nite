@@ -2,6 +2,10 @@
 
 A phone-friendly single-elimination bracket app for 2–64 entries. Includes group voting, host-managed tournaments, personal copies, two themes, holiday starters and watched marks. Live at [bracketnite.com](https://bracketnite.com).
 
+## Design system
+
+The app uses the modern scorecard design: navy mastheads, serif tournament and entry titles, cobalt controls, and gold winner states. See [DESIGN.md](DESIGN.md) for tokens, components and responsive behavior.
+
 ## Architecture
 
 Next.js on Vercel, with a Supabase Postgres database. Each tournament is one row in `tournaments`: the aggregate (entries, opening order, matches, guest identities and votes) lives in a `jsonb` column, and conditional `revision` updates serialize concurrent writes. Public responses omit guest secrets and individual vote records; only the current guest's own selection is visible before closure. Guest secrets are hashed at rest and carried by HttpOnly cookies; private recovery links use URL fragments, removed before requests.

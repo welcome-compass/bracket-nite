@@ -34,19 +34,19 @@ export function SignIn({onClose,onSignedIn}:{onClose:()=>void;onSignedIn:()=>voi
       {step==='email'?<form onSubmit={send}>
         <span className="eyebrow">HOST SIGN IN</span>
         <h2 id="signin-title">We&rsquo;ll email you a code.</h2>
-        <p className="muted">New or returning, same door. No password.</p>
+        <p className="help">New or returning, same door. No password.</p>
         <label className="field">Email<input type="email" inputMode="email" autoComplete="email" autoFocus required placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)}/></label>
         {error&&<p className="signin-error" role="alert">{error}</p>}
         <button className="primary" type="submit" disabled={busy||!email.includes('@')}>{busy?'Sending…':'Send my code'}</button>
       </form>:<form onSubmit={verify}>
         <span className="eyebrow">CHECK YOUR EMAIL</span>
         <h2 id="signin-title">Enter the code.</h2>
-        <p className="muted">We sent it to {email}.</p>
+        <p className="help">We sent it to {email}.</p>
         <label className="field">Code<input inputMode="numeric" autoComplete="one-time-code" autoFocus required pattern="[0-9 ]{6,12}" value={code} onChange={e=>setCode(e.target.value)}/></label>
         {error&&<p className="signin-error" role="alert">{error}</p>}
-        {notice&&<p className="muted">{notice}</p>}
+        {notice&&<p className="help">{notice}</p>}
         <button className="primary" type="submit" disabled={busy||code.replace(/\s/g,'').length<6}>{busy?'Checking…':'Sign in'}</button>
-        <div className="signin-links"><button type="button" className="text-btn" disabled={busy} onClick={()=>send()}>Send a new code</button><button type="button" className="text-btn" onClick={()=>{setStep('email');setError('');}}>Use a different email</button></div>
+        <div className="signin-links"><button type="button" className="text-button" disabled={busy} onClick={()=>send()}>Send a new code</button><button type="button" className="text-button" onClick={()=>{setStep('email');setError('');}}>Use a different email</button></div>
       </form>}
     </div>
   </div>;
