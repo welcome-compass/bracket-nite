@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect, useRef, useState} from 'react';
+import {SignIn} from '@/components/sign-in';
 import {Award, Check, CheckCircle2, ChevronDown, ChevronUp, Circle, Copy, Eye, Film, Flag, LayoutGrid, Link, List, LoaderCircle, Music, Plus, Shuffle, Trophy, Users, X} from 'lucide-react';
 import type {Match, Tournament} from '../lib/engine';
 
@@ -51,6 +52,7 @@ export default function App() {
   const [nick,setNick]=useState(''), [overview,setOverview]=useState(false), [round,setRound]=useState(0);
   const [focusId,setFocusId]=useState<string|null>(null), [edit,setEdit]=useState(false), [draft,setDraft]=useState('');
   const [recovery,setRecovery]=useState('');
+  const [signingIn,setSigningIn]=useState(false);
   const activeId=useRef<string|null>(null), loadedId=useRef<string|null>(null);
   const noticeTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const count=entries.split('\n').filter(s=>s.trim()).length;
@@ -87,8 +89,6 @@ export default function App() {
       const secret=new URLSearchParams(location.hash.slice(1)).get('rejoin');
       if(secret){history.replaceState({},'','/?b='+id);api({action:'recover',id,secret}).then(()=>load(id)).catch(e=>setError(e.message));}
       else void load(id);
-    } else if(params.has('new')) {
-      try {const saved=sessionStorage.getItem('bn-draft');if(saved){restoreDraft(JSON.parse(saved));sessionStorage.removeItem('bn-draft');history.replaceState({},'','/');}}catch{/* A new bracket can still be created if storage is unavailable. */}
     }
     const pop=()=>{
       const id=new URLSearchParams(location.search).get('b');activeId.current=id;loadedId.current=null;
@@ -128,10 +128,19 @@ export default function App() {
     else restoreDraft({title:'',entries:'',theme:'everyday',mode:'group',watch:false});
     window.scrollTo({top:0,behavior:'instant'});
   }
-  function signInDraft() {
-    try{sessionStorage.setItem('bn-draft',JSON.stringify({title,entries,theme,mode,watch}));}catch{setError('Your browser could not save this draft. Copy your entry list before signing in.');}
+  async function signOut() {
+    await run(async()=>{
+      const response=await fetch('/api/auth/logout',{method:'POST'});
+      if(!response.ok)throw new Error('Could not sign out. Please try again.');
+      await loadHome();
+      if(activeId.current)await load(activeId.current);
+    });
   }
-  const signIn='/signin-with-chatgpt?return_to='+encodeURIComponent(typeof window!=='undefined'?location.pathname+location.search:'/');
+  function signedIn() {
+    setSigningIn(false);
+    void loadHome();
+    if(activeId.current)void load(activeId.current);
+  }
   const names:Record<string,string>=Object.fromEntries((bracket?.entries||[]).map(e=>[e.id,e.name]));
   const rounds=bracket?Array.from(new Set(bracket.matches.map(m=>m.round))):[];
   const matchesThisRound=bracket?.matches.filter(m=>m.round===round)||[];
@@ -147,7 +156,7 @@ export default function App() {
   function changeFocus(id:string) {setFocusId(id);setOverview(false);}
   function copyBracket() {
     if(!bracket)return;
-    if(!home?.user){location.href='/signin-with-chatgpt?return_to='+encodeURIComponent('/?b='+bracket.id);return;}
+    if(!home?.user){setSigningIn(true);return;}
     void run(async()=>{const data=await api({action:'copy',id:bracket.id});navigate(data.id);});
   }
   function closeControls(match:ViewMatch) {
@@ -192,7 +201,7 @@ export default function App() {
 
   return <div className={'app '+(theme==='holiday'&&view!=='home'?'holiday':'')}>
     <header className="header"><div className="header-inner"><a className="brand" href="/" onClick={event=>{event.preventDefault();navigate();}}><Flag size={21} aria-hidden="true"/><span>Bracket Night</span></a>
-      <nav aria-label="Main navigation">{view!=='home'&&<button className="nav-button" onClick={()=>navigate()}>My brackets</button>}{home?.user?<div className="account"><span className="avatar" aria-hidden="true">{home.user.name[0]}</span><span className="account-name">{home.user.name}</span><a className="signout" href="/signout-with-chatgpt?return_to=/" target="_top">Sign out</a></div>:<a className="nav-button" href={signIn} target="_top">Host sign in</a>}</nav></div></header>
+      <nav aria-label="Main navigation">{view!=='home'&&<button className="nav-button" onClick={()=>navigate()}>My brackets</button>}{home?.user?<div className="account"><span className="avatar" aria-hidden="true">{home.user.name[0]}</span><span className="account-name">{home.user.name}</span><button type="button" className="signout" disabled={busy} onClick={signOut}>Sign out</button></div>:<button type="button" className="nav-button" onClick={()=>setSigningIn(true)}>Host sign in</button>}</nav></div></header>
     {error&&<div role="alert" className="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={()=>setError('')}><X size={18}/></button></div>}
     {notice&&<div role="status" className="toast">{notice}</div>}
 
@@ -217,7 +226,7 @@ export default function App() {
         <div className="field-top"><label htmlFor="entries">The contenders</label><span>{count} / 64 entries</span></div><p id="entries-help" className="help">One entry per line. Type them in or paste your whole list.</p><textarea id="entries" aria-describedby="entries-help" required rows={9} value={entries} onChange={e=>setEntries(e.target.value)} placeholder={'Home Alone\nElf\nThe Muppet Christmas Carol'}/><button type="button" className="text-button" onClick={()=>{setEntries(movies.join('\n'));setWatch(true);}}>Use the holiday movie list</button>
         <div className="form-bottom"><label className="field">Edition<span className="select-wrap"><select value={theme} onChange={e=>setTheme(e.target.value)}><option value="everyday">Open edition</option><option value="holiday">Holiday edition</option></select><ChevronDown size={16} aria-hidden="true"/></span></label><label className="checkbox"><input type="checkbox" checked={watch} onChange={e=>setWatch(e.target.checked)}/><span>Keep a watched checklist</span></label></div>
       </div></section>
-      {!home?.user?<div className="signin-panel"><p>Sign in to save your bracket and keep the host controls.</p><a className="primary" href="/signin-with-chatgpt?return_to=/?new=1" target="_top" onClick={signInDraft}>Sign in with ChatGPT</a></div>:<div className="submit-row"><p className="help">You’ll review the opening matchups before starting.</p><button disabled={busy||count<2||count>64} className="primary" type="submit">{busy&&<LoaderCircle className="spin" size={17}/>} Arrange matchups</button></div>}
+      {!home?.user?<div className="signin-panel"><p>Sign in to save your bracket and keep the host controls.</p><button type="button" className="primary" onClick={()=>setSigningIn(true)}>Sign in with email</button></div>:<div className="submit-row"><p className="help">You’ll review the opening matchups before starting.</p><button disabled={busy||count<2||count>64} className="primary" type="submit">{busy&&<LoaderCircle className="spin" size={17}/>} Arrange matchups</button></div>}
       </form>
     </main>}
 
@@ -252,6 +261,7 @@ export default function App() {
         {bracket.watch&&<section className="watchlist"><div className="section-heading"><div><p className="eyebrow">Make it a movie night</p><h2>The watched checklist</h2></div><span className="secondary-text">{bracket.entries.filter(e=>e.watched).length} of {bracket.entries.length} watched</span></div><div className="watch-grid">{bracket.entries.map(entry=><label key={entry.id} className={'watch-row '+(entry.watched?'watched':'')}><input disabled={!bracket.host||busy} type="checkbox" checked={entry.watched} onChange={event=>action('watched',{entry:entry.id,watched:event.target.checked})}/><span>{entry.name}</span>{entry.watched&&<Eye size={16}/>}</label>)}</div><p className="help">{bracket.host?'Mark movies as you watch. These checks don’t affect advancement.':'The host keeps this list up to date. Watched marks don’t affect advancement.'}</p></section>}
       </>}
     </main>}
+    {signingIn&&<SignIn onClose={()=>setSigningIn(false)} onSignedIn={signedIn}/>}
     <footer className="footer"><a href="/" onClick={event=>{event.preventDefault();navigate();}}>Bracket Night</a><span>A few favorites. One champion.</span><span className="footer-note">Make it your kind of night.</span></footer>
   </div>;
 }
