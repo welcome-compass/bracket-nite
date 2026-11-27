@@ -8,7 +8,7 @@ The app uses the modern scorecard design: navy mastheads, serif tournament and e
 
 ## Architecture
 
-Next.js on Vercel, with a Supabase Postgres database. Each tournament is one row in `tournaments`: the aggregate (entries, opening order, matches, guest identities and votes) lives in a `jsonb` column, and conditional `revision` updates serialize concurrent writes. Public responses omit guest secrets and individual vote records; only the current guest's own selection is visible before closure. Guest secrets are hashed at rest and carried by HttpOnly cookies; private recovery links use URL fragments, removed before requests.
+Next.js on Vercel, with a Supabase Postgres database. Each tournament is one row in `tournaments`: the aggregate (entries, opening order, matches, guest identities and votes) lives in a `jsonb` column, and conditional `revision` updates serialize concurrent writes. Public responses omit guest secrets and individual vote records; only the current guest's own selection is visible before closure. Signed-in players are identified by their account, so their votes follow them to any device. Guests who don't sign in are identified by a per-bracket HttpOnly cookie whose secret is hashed at rest; there are no rejoin links.
 
 Hosts sign in with their email. Supabase Auth emails a 6-digit code and checks it; the app then sets its own signed, 180-day `bn_host` cookie. Hosts are not database users, and the browser never talks to Supabase.
 
@@ -58,6 +58,6 @@ Import this repo as a Next.js project, set the four env vars for Production (and
 
 ## API
 
-The JSON API is `/api`: GET without an ID lists only the signed-in host's brackets; GET `?id=<uuid>` returns a safe bracket view. POST actions: create, copy, setup, start, watched, join, recover, recovery, vote, close. Host actions enforce ownership server-side; guest votes require their bracket session. POSTs require a matching Origin. Brackets are unlisted rather than confidential: anyone with the link can view a started tournament, and anonymous users can join active group brackets. Guest sessions identify browsers, not verified people. Polling refreshes active bracket pages every 12 seconds while visible.
+The JSON API is `/api`: GET without an ID lists only the signed-in host's brackets; GET `?id=<uuid>` returns a safe bracket view. POST actions: create, copy, setup, start, watched, join, vote, close. Host actions enforce ownership server-side; votes require the player's account or bracket cookie. POSTs require a matching Origin. Brackets are unlisted rather than confidential: anyone with the link can view a started tournament, and anonymous users can join active group brackets. Guest sessions identify browsers, not verified people. Polling refreshes active bracket pages every 12 seconds while visible.
 
 Sign-in lives at `POST /api/auth/code`, `POST /api/auth/verify` and `POST /api/auth/logout`.

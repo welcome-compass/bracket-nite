@@ -36,4 +36,4 @@ Use 5px corners, 1px borders, and a small solid offset edge on the main scorecar
 
 ## Responsive and accessible behavior
 
-Stack page columns below tablet width. Keep matchup choices side by side on phones, wrap long names and metadata, and provide 44px touch targets. Preserve keyboard focus rings and native inputs. Host decisions stay explicit; private rejoin links can be hidden after copying.
+Stack page columns below tablet width. Keep matchup choices side by side on phones, wrap long names and metadata, and provide 44px touch targets. Preserve keyboard focus rings and native inputs. Host decisions stay explicit.

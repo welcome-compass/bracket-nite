@@ -12,13 +12,14 @@ function session(req:Request,id:string){return req.headers.get('cookie')?.split(
 function response(data:unknown,status=200,cookie?:string){return Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer',...(cookie?{'Set-Cookie':cookie}:{})}})}
 function cookie(id:string,value:string,req:Request){return `bn_${id}=${value}; Path=/api; HttpOnly; SameSite=Lax; Max-Age=31536000${new URL(req.url).protocol==='https:'?'; Secure':''}`;}
 async function load(id:string):Promise<Row|null>{if(!UUID.test(id))return null;const {data,error}=await db().from('tournaments').select('id,owner,data,revision').eq('id',id).maybeSingle<Row>();if(error)throw new DbError(error.message);return data;}
-async function identify(t:Tournament,secret:string){if(!secret)return null;const h=await hash(secret);return Object.keys(t.participants).find(k=>t.participants[k].hash===h)||null;}
+// Signed-in players are found by their account on any device; guests by this device's cookie.
+async function identify(t:Tournament,account:string|null,secret:string){const ids=Object.keys(t.participants);if(account){const mine=ids.find(k=>t.participants[k].account===account);if(mine)return mine;}if(!secret)return null;const h=await hash(secret);return ids.find(k=>t.participants[k].hash===h)||null;}
 export async function GET(req:Request){try{
  const user=await getUser();const id=new URL(req.url).searchParams.get('id');
  if(!id){let rows:{id:string;data:Tournament;created:string}[]=[];if(user){const {data,error}=await db().from('tournaments').select('id,data,created').eq('owner',user.userId).order('created',{ascending:false}).limit(100);if(error)throw new DbError(error.message);rows=data;}return response({user:user?{name:user.email}:null,brackets:rows.map(r=>{const t=r.data;return{id:r.id,title:t.title,status:t.status,mode:t.mode,count:t.entries.length,created:r.created};})});}
  const row=await load(id);if(!row)return response({error:'This bracket could not be found.'},404);const t=row.data;const host=user?.userId===row.owner;
  if(t.status==='draft'&&!host)return response({error:'The host is still setting up this bracket. Come back after it starts.'},403);
- const participant=await identify(t,session(req,id));return response({id,revision:row.revision,...publicView(t,host,participant)});
+ const participant=await identify(t,user?.userId||null,session(req,id));return response({id,revision:row.revision,...publicView(t,host,participant)});
  }catch(e){console.error(e);return response({error:'Could not load your bracket. Please try again.'},500)}}
 export async function POST(req:Request){try{
  if(req.headers.get('origin')!==new URL(req.url).origin)return response({error:'Please use this app to make changes.'},403);
@@ -33,7 +34,7 @@ export async function POST(req:Request){try{
  }
  const id=String(body.id||'');
  for(let attempt=0;attempt<5;attempt++){
- const row=await load(id);if(!row)return response({error:'Bracket not found.'},404);const t=row.data;const host=user?.userId===row.owner;let secret=session(req,id);let participant=await identify(t,secret);let setCookie:string|undefined;
+ const row=await load(id);if(!row)return response({error:'Bracket not found.'},404);const t=row.data;const host=user?.userId===row.owner;let participant=await identify(t,user?.userId||null,session(req,id));let setCookie:string|undefined;
  const hostActions=['setup','start','close','watched'];if(hostActions.includes(body.action)&&!host)return response({error:'Only the host can do that.'},403);
  if(body.action==='setup'){
   if(t.status!=='draft')fail('Entries are locked once play begins.');
@@ -45,10 +46,7 @@ export async function POST(req:Request){try{
  }else if(body.action==='close'){if(t.status!=='active')fail('This bracket is not active.');close(t,String(body.match),body.winner);
  }else if(body.action==='join'){
   if(t.mode!=='group'||t.status!=='active')fail('This bracket is not accepting votes.');if(typeof body.name!=='string'||!body.name.trim()||body.name.length>40)fail('Use a nickname of 1–40 characters.');
-  if(!participant){if(Object.keys(t.participants).length>=500)fail('This bracket has reached its participant limit.');participant=crypto.randomUUID();secret=token();t.participants[participant]={name:body.name.trim(),hash:await hash(secret)};setCookie=cookie(id,secret,req);}
- }else if(body.action==='recover'){
-  const recovered=typeof body.secret==='string'?await identify(t,body.secret):null;if(!recovered)return response({error:'That rejoin link is invalid.'},403);if(!body.confirm)return response({name:t.participants[recovered].name});return response({ok:true},200,cookie(id,body.secret,req));
- }else if(body.action==='recovery'){if(!participant)return response({error:'Join this bracket first.'},403);return response({secret});
+  if(!participant){if(Object.keys(t.participants).length>=500)fail('This bracket has reached its participant limit.');participant=crypto.randomUUID();if(user)t.participants[participant]={name:body.name.trim(),account:user.userId};else{const secret=token();t.participants[participant]={name:body.name.trim(),hash:await hash(secret)};setCookie=cookie(id,secret,req);}}
  }else if(body.action==='vote'){if(!participant)return response({error:'Join with a nickname first.'},403);vote(t,String(body.match),participant,String(body.entry));
  }else fail('Unknown action.');
  const {data:updated,error}=await db().from('tournaments').update({data:t,revision:row.revision+1}).eq('id',id).eq('revision',row.revision).select('id');if(error)throw new DbError(error.message);

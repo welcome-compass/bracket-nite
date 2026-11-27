@@ -1,6 +1,6 @@
 export type Entry={id:string;name:string;watched:boolean};
 export type Match={id:string;round:number;index:number;a:string|null;b:string|null;winner:string|null;closed:boolean;bye:boolean};
-export type Tournament={title:string;mode:'group'|'personal'|'host';watch:boolean;status:'draft'|'active'|'complete';entries:Entry[];order:string[];matches:Match[];participants:Record<string,{name:string;hash:string}>;votes:Record<string,Record<string,string>>;source?:string};
+export type Tournament={title:string;mode:'group'|'personal'|'host';watch:boolean;status:'draft'|'active'|'complete';entries:Entry[];order:string[];matches:Match[];participants:Record<string,{name:string;hash?:string;account?:string}>;votes:Record<string,Record<string,string>>;source?:string};
 export function fail(message:string):never{throw new Error(message)}
 export function validateEntries(names:unknown):string[]{
  if(!Array.isArray(names)||names.length<2||names.length>64)fail('Add between 2 and 64 entries.');
