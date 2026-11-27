@@ -200,7 +200,7 @@ export default function App() {
   }
 
   return <div className={'app '+(theme==='holiday'&&view!=='home'?'holiday':'')}>
-    <header className="header"><div className="header-inner"><a className="brand" href="/" onClick={event=>{event.preventDefault();navigate();}}><Flag size={21} aria-hidden="true"/><span>Bracket Night</span></a>
+    <header className="header"><div className="header-inner"><a className="brand" href="/" onClick={event=>{event.preventDefault();navigate();}}><Flag size={21} aria-hidden="true"/><span>Bracket Nite</span></a>
       <nav aria-label="Main navigation">{view!=='home'&&<button className="nav-button" onClick={()=>navigate()}>My brackets</button>}{home?.user?<div className="account"><span className="avatar" aria-hidden="true">{home.user.name[0]}</span><span className="account-name">{home.user.name}</span><button type="button" className="signout" disabled={busy} onClick={signOut}>Sign out</button></div>:<button type="button" className="nav-button" onClick={()=>setSigningIn(true)}>Host sign in</button>}</nav></div></header>
     {error&&<div role="alert" className="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={()=>setError('')}><X size={18}/></button></div>}
     {notice&&<div role="status" className="toast">{notice}</div>}
@@ -262,6 +262,6 @@ export default function App() {
       </>}
     </main>}
     {signingIn&&<SignIn onClose={()=>setSigningIn(false)} onSignedIn={signedIn}/>}
-    <footer className="footer"><a href="/" onClick={event=>{event.preventDefault();navigate();}}>Bracket Night</a><span>A few favorites. One champion.</span><span className="footer-note">Make it your kind of night.</span></footer>
+    <footer className="footer"><a href="/" onClick={event=>{event.preventDefault();navigate();}}>Bracket Nite</a><span>A few favorites. One champion.</span><span className="footer-note">Make it your kind of night.</span></footer>
   </div>;
 }

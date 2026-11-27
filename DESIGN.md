@@ -1,4 +1,4 @@
-# Bracket Night: the modern scorecard
+# Bracket Nite: the modern scorecard
 
 The tournament is the centerpiece. Use the visual language of a printed game scorecard: a navy masthead, serif entry titles, readable controls, round numbers and seeded chips. Gold marks winners; cobalt marks participation and the current round.
 
