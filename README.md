@@ -40,7 +40,8 @@ Migrations live in `supabase/migrations` and run in filename order. The Supabase
 Auth settings (dashboard, Authentication):
 
 - Custom SMTP, the same provider as Pill Donkey. The built-in mailer only reaches your own team.
-- The Magic Link email template shows `{{ .Token }}`, so the email carries the code.
+- The Magic Link email template uses `supabase/templates/sign-in-code.html`, with subject `Your Bracket Nite sign-in code`. It shows `{{ .Token }}` and matches the app’s navy, cobalt and gold palette. Apply the same template to Confirm signup if sign-up confirmations are enabled, so new hosts receive the same code email.
+- Hosted email templates are managed in Supabase → Authentication → Email Templates. A Vercel deploy or a database migration does not apply this HTML automatically. Keep the hosted template in sync with the versioned file; do not replace the token with a real code.
 - Site URL `https://bracketnite.com`.
 
 Check the lock after deploy:
