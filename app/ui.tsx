@@ -52,6 +52,7 @@ export default function App() {
   const [nick,setNick]=useState(''), [overview,setOverview]=useState(false), [round,setRound]=useState(0);
   const [focusId,setFocusId]=useState<string|null>(null), [edit,setEdit]=useState(false), [draft,setDraft]=useState('');
   const [recovery,setRecovery]=useState('');
+  const [rejoin,setRejoin]=useState<{id:string;secret:string;name:string}|null>(null);
   const [signingIn,setSigningIn]=useState(false);
   const activeId=useRef<string|null>(null), loadedId=useRef<string|null>(null);
   const noticeTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -74,7 +75,7 @@ export default function App() {
   function navigate(id?:string) {
     history.pushState({},'',id?'/?b='+id:'/');
     activeId.current=id||null;loadedId.current=null;
-    setError('');setRecovery('');setEdit(false);setOverview(false);setBracket(null);setFocusId(null);
+    setError('');setRecovery('');setRejoin(null);setEdit(false);setOverview(false);setBracket(null);setFocusId(null);
     if(id){setView('bracket');void load(id);}else{setView('home');void loadHome();}
     window.scrollTo({top:0,behavior:'instant'});
   }
@@ -87,12 +88,12 @@ export default function App() {
     if(id){
       activeId.current=id;setView('bracket');
       const secret=new URLSearchParams(location.hash.slice(1)).get('rejoin');
-      if(secret){history.replaceState({},'','/?b='+id);api({action:'recover',id,secret}).then(()=>load(id)).catch(e=>setError(e.message));}
-      else void load(id);
+      if(secret){history.replaceState({},'','/?b='+id);api<{name:string}>({action:'recover',id,secret}).then(({name})=>setRejoin({id,secret,name})).catch(e=>setError(e.message));}
+      void load(id);
     }
     const pop=()=>{
       const id=new URLSearchParams(location.search).get('b');activeId.current=id;loadedId.current=null;
-      setError('');setRecovery('');setEdit(false);setOverview(false);setBracket(null);
+      setError('');setRecovery('');setRejoin(null);setEdit(false);setOverview(false);setBracket(null);
       if(id){setView('bracket');void load(id);}else{setView('home');void loadHome();}
     };
     window.addEventListener('popstate',pop);
@@ -112,7 +113,7 @@ export default function App() {
     const id=bracket.id;
     return run(async()=>{
       const data=await api({action,id,...extra});
-      if(data.secret)setRecovery(location.origin+'/?b='+id+'#rejoin='+encodeURIComponent(data.secret));
+      if(action==='recovery'&&data.secret)setRecovery(location.origin+'/?b='+id+'#rejoin='+encodeURIComponent(data.secret));
       await load(id);
     });
   }
@@ -247,9 +248,10 @@ export default function App() {
           return <button key={value} className={'round-button '+(round===value&&!overview?'current':'')} aria-pressed={round===value&&!overview} onClick={()=>chooseRound(value)}><span className="round-number">{done?<Check size={14}/>:value+1}</span><span>{roundName(value,rounds.length)}</span></button>;
         })}</div>
 
+        {rejoin&&rejoin.id===bracket.id&&bracket.participant?.name!==rejoin.name&&<section className="recovery"><div><h2>Rejoin as {rejoin.name}?</h2><button className="icon-button" aria-label="Dismiss rejoin link" onClick={()=>setRejoin(null)}><X size={18}/></button></div><p>This is {rejoin.name}’s private rejoin link. Continuing makes this device vote as {rejoin.name}. If you’re someone else, join with your own nickname instead.</p><div className="toolbar"><button className="primary" disabled={busy} onClick={()=>void run(async()=>{await api({action:'recover',id:rejoin.id,secret:rejoin.secret,confirm:true});setRejoin(null);await load(rejoin.id);})}>I’m {rejoin.name}</button><button className="secondary" onClick={()=>setRejoin(null)}>I’m someone else</button></div></section>}
         {bracket.mode==='group'&&bracket.status==='active'&&!bracket.participant&&<form className="join-panel" onSubmit={event=>{event.preventDefault();void action('join',{name:nick});}}><div><h2>Take your seat.</h2><p>Join with a nickname to vote. No account needed.</p></div><label className="sr-only" htmlFor="nickname">Your nickname</label><input id="nickname" value={nick} maxLength={40} required placeholder="Your nickname" autoComplete="nickname" onChange={e=>setNick(e.target.value)}/><button disabled={busy} className="primary">Join the vote</button></form>}
         {bracket.participant&&<div className="rejoin"><span><CheckCircle2 size={16}/> Playing as {bracket.participant.name}. Your votes save automatically.</span><button className="text-button" disabled={busy} onClick={()=>action('recovery')}><Link size={15}/> My private rejoin link</button></div>}
-        {recovery&&<section className="recovery"><div><h2>Your private rejoin link</h2><button className="icon-button" aria-label="Hide private rejoin link" onClick={()=>setRecovery('')}><X size={18}/></button></div><p>Save this for another device. It gives access to your votes, so keep it to yourself.</p><label className="sr-only" htmlFor="recovery">Private rejoin link</label><input id="recovery" readOnly value={recovery} onFocus={e=>e.target.select()}/><button className="secondary" onClick={()=>clipboard(recovery)}><Copy size={15}/> Copy private link</button></section>}
+        {recovery&&<section className="recovery"><div><h2>Your private rejoin link</h2><button className="icon-button" aria-label="Hide private rejoin link" onClick={()=>setRecovery('')}><X size={18}/></button></div><p>Use this to get back to your own votes on another device. Anyone who opens it votes as you, so don’t send it to other players. To invite people, use Share bracket.</p><label className="sr-only" htmlFor="recovery">Private rejoin link</label><input id="recovery" readOnly value={recovery} onFocus={e=>e.target.select()}/><button className="secondary" onClick={()=>clipboard(recovery)}><Copy size={15}/> Copy private link</button></section>}
 
         <div className="section-heading matchup-heading"><h2>{overview?'The tournament board':roundName(round,rounds.length)}</h2><button className="secondary view-toggle" aria-pressed={overview} onClick={()=>setOverview(!overview)}>{overview?<List size={16}/>:<LayoutGrid size={16}/>} {overview?'Matchups':'Full bracket'}</button></div>
         {overview?<div className="bracket-scroll" tabIndex={0} role="region" aria-label="Full bracket. Scroll horizontally to see later rounds."><div className="bracket-board">{rounds.map(value=><section className="bracket-column" key={value}><h3>{roundName(value,rounds.length)}</h3><div className="column-matches">{bracket.matches.filter(m=>m.round===value).map(compactMatch)}</div></section>)}<section className="bracket-column champion-column"><h3>Champion</h3><div className={'champion-slot '+(champion?'crowned':'')}><Trophy size={27}/><strong>{champion||'Bragging rights.'}</strong><span>{champion?'The last entry standing.':'Reserved for the last entry standing.'}</span></div></section></div></div>:focused?<>

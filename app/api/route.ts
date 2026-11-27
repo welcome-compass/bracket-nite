@@ -33,7 +33,7 @@ export async function POST(req:Request){try{
  }
  const id=String(body.id||'');
  for(let attempt=0;attempt<5;attempt++){
- const row=await load(id);if(!row)return response({error:'Bracket not found.'},404);const t=row.data;const host=user?.userId===row.owner;let secret=session(req,id);let participant=await identify(t,secret);let setCookie:string|undefined;let recovery:string|undefined;
+ const row=await load(id);if(!row)return response({error:'Bracket not found.'},404);const t=row.data;const host=user?.userId===row.owner;let secret=session(req,id);let participant=await identify(t,secret);let setCookie:string|undefined;
  const hostActions=['setup','start','close','watched'];if(hostActions.includes(body.action)&&!host)return response({error:'Only the host can do that.'},403);
  if(body.action==='setup'){
   if(t.status!=='draft')fail('Entries are locked once play begins.');
@@ -45,14 +45,14 @@ export async function POST(req:Request){try{
  }else if(body.action==='close'){if(t.status!=='active')fail('This bracket is not active.');close(t,String(body.match),body.winner);
  }else if(body.action==='join'){
   if(t.mode!=='group'||t.status!=='active')fail('This bracket is not accepting votes.');if(typeof body.name!=='string'||!body.name.trim()||body.name.length>40)fail('Use a nickname of 1–40 characters.');
-  if(!participant){if(Object.keys(t.participants).length>=500)fail('This bracket has reached its participant limit.');participant=crypto.randomUUID();secret=token();t.participants[participant]={name:body.name.trim(),hash:await hash(secret)};setCookie=cookie(id,secret,req);}recovery=secret;
+  if(!participant){if(Object.keys(t.participants).length>=500)fail('This bracket has reached its participant limit.');participant=crypto.randomUUID();secret=token();t.participants[participant]={name:body.name.trim(),hash:await hash(secret)};setCookie=cookie(id,secret,req);}
  }else if(body.action==='recover'){
-  const recovered=typeof body.secret==='string'?await identify(t,body.secret):null;if(!recovered)return response({error:'That rejoin link is invalid.'},403);return response({ok:true},200,cookie(id,body.secret,req));
+  const recovered=typeof body.secret==='string'?await identify(t,body.secret):null;if(!recovered)return response({error:'That rejoin link is invalid.'},403);if(!body.confirm)return response({name:t.participants[recovered].name});return response({ok:true},200,cookie(id,body.secret,req));
  }else if(body.action==='recovery'){if(!participant)return response({error:'Join this bracket first.'},403);return response({secret});
  }else if(body.action==='vote'){if(!participant)return response({error:'Join with a nickname first.'},403);vote(t,String(body.match),participant,String(body.entry));
  }else fail('Unknown action.');
  const {data:updated,error}=await db().from('tournaments').update({data:t,revision:row.revision+1}).eq('id',id).eq('revision',row.revision).select('id');if(error)throw new DbError(error.message);
- if(updated.length)return response({ok:true,...(recovery?{secret:recovery}:{})},200,setCookie);
+ if(updated.length)return response({ok:true},200,setCookie);
  }
  return response({error:'Someone else just updated this bracket. Please try again.'},409);
  }catch(e){const message=e instanceof Error?e.message:'Unable to save.';if(e instanceof DbError||/is not set/.test(message)){console.error(e);return response({error:'Unable to save. Please try again.'},500);}return response({error:message},400)}}
